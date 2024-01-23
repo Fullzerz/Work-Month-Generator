@@ -2,20 +2,30 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Net.Http;
+using System.Threading.Tasks;
+using Newtonsoft.Json; // Nuget Package
 
 namespace Work_Month_Generator
 {
     internal class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
-            // Declare variables and then initialize to zero.
-            int currentYear = 0; int customYear = 0; int errorFlag = 0;
+            // Declare variables and then initialize them.
+            bool currentYear = false; 
+            bool customYear = false; 
+            bool errorFlag = false;
+            bool holidayFlag = false;
+            String yearValue = "";
+            String localeValue = "IT";
+            String apiUrl = "https://date.nager.at/api/v3/publicholidays";
+            //String jsonHolidays = "";
 
             // Display title
-            Console.WriteLine("---------------------------\r");
-            Console.WriteLine("Work Month Generator - 2024\r");
-            Console.WriteLine("---------------------------\n");
+            Console.WriteLine("-----------------------------------\r");
+            Console.WriteLine("Work Month Generator - 2024 - ITALY\r");
+            Console.WriteLine("-----------------------------------\n");
 
             // Display menu
             Console.WriteLine("Choose an option: \n");
@@ -26,35 +36,109 @@ namespace Work_Month_Generator
             do
             {
                 Console.Write("\nYour option? ");
-                errorFlag = 0;
+                errorFlag = false;
                 switch (Console.ReadLine())
                 {
                     case "1":
-                        currentYear = 1;
+                        currentYear = true;
                         break;
                     case "2":
-                        customYear = 1;
+                        customYear = true;
                         break;
                     default:
                         Console.WriteLine("This option doesn't exist");
-                        errorFlag = 1;
+                        errorFlag = true;
                         break;
                 }
-            } while (errorFlag == 1);
+            } while (errorFlag);
+
+            // Use a do while loop and switch statement to let the user decide if they want to include holidays (call to API).
+            do
+            {
+                Console.Write("\nDo you want to include holidays in this sheet? (Y/N): ");
+                errorFlag = false;
+                switch (Console.ReadLine())
+                {
+                    case "Y": case "y":
+                        holidayFlag = true;
+                        break;
+                    case "N": case "n":
+                        holidayFlag = false;
+                        break;
+                    default:
+                        Console.WriteLine("This option doesn't exist");
+                        errorFlag = true;
+                        break;
+                }
+            } while (errorFlag);
 
             // Use an if statement to redirect to requested functionality
-            if (currentYear == 1)
+            if (currentYear)
             {
-                Console.WriteLine($"\ncurrentYear value: {currentYear} -- customYear value: {customYear} -- errorFlag value: {errorFlag}");
+                yearValue = DateTime.Now.Year.ToString();
+
+                if (holidayFlag)
+                {
+                    await retrieveHolidaysAPI($"{apiUrl}/{yearValue}/{localeValue}");
+                    // TODO: HERE GOES THE CODE THAT WILL DECODE THE JSON
+                }
+
+                // TODO: HERE GOES THE CODE THAT WILL GENERATE THE EXCEL
             }
-            else if (customYear == 1)
+            else if (customYear)
             {
-                Console.WriteLine($"\ncurrentYear value: {currentYear} -- customYear value: {customYear} -- errorFlag value: {errorFlag}");
+                do
+                {
+                    Console.Write("\nInput a valid year: ");
+                    yearValue = Console.ReadLine();
+
+                    var inputNumber = 0;
+                    var parsingFlag = Int32.TryParse(yearValue, out inputNumber);
+                    if ((inputNumber < 1000) || (inputNumber > 9999) || !parsingFlag)
+                    {
+                        Console.WriteLine("Invalid entry.");
+                        errorFlag = true;
+                    } else
+                    {
+                        errorFlag = false;
+                    }
+                } while (errorFlag);
+                
+
+
+                if (holidayFlag)
+                {
+                    await retrieveHolidaysAPI($"{apiUrl}/{yearValue}/{localeValue}");
+                    // TODO: HERE GOES THE CODE THAT WILL DECODE THE JSON
+                }
+
+                // TODO: HERE GOES THE CODE THAT WILL GENERATE THE EXCEL
             }
 
             // Wait for the user to respond before closing.
             Console.Write("Press any key to close the Work Month Generator app...");
             Console.ReadKey();
+        }
+
+        public static async Task<object> retrieveHolidaysAPI(string url)
+        {
+            try
+            {
+                using (HttpClient client = new HttpClient())
+                {
+                    var response = await client.GetAsync(url);
+                    if (response != null)
+                    {
+                        var jsonString = await response.Content.ReadAsStringAsync();
+                        return JsonConvert.DeserializeObject<object>(jsonString);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("An error has occurred when calling the API to retrieve the holidays. Exception: " + ex);
+            }
+            return null;
         }
     }
 }
