@@ -20,7 +20,7 @@ namespace Work_Month_Generator
             String yearValue = "";
             String localeValue = "IT";
             String apiUrl = "https://date.nager.at/api/v3/publicholidays";
-            //String jsonHolidays = "";
+            List<HolidayJson> holidayList = null;
 
             // Display title
             Console.WriteLine("-----------------------------------\r");
@@ -79,7 +79,10 @@ namespace Work_Month_Generator
 
                 if (holidayFlag)
                 {
-                    await retrieveHolidaysAPI($"{apiUrl}/{yearValue}/{localeValue}");
+                    holidayList = await retrieveHolidaysAPI($"{apiUrl}/{yearValue}/{localeValue}");
+                    foreach(var holiday in holidayList){
+                        Console.Write(holiday.date + "--" + holiday.localName + "\n");
+                    }
                     // TODO: HERE GOES THE CODE THAT WILL DECODE THE JSON
                 }
 
@@ -108,7 +111,11 @@ namespace Work_Month_Generator
 
                 if (holidayFlag)
                 {
-                    await retrieveHolidaysAPI($"{apiUrl}/{yearValue}/{localeValue}");
+                    holidayList = await retrieveHolidaysAPI($"{apiUrl}/{yearValue}/{localeValue}");
+                    foreach (var holiday in holidayList)
+                    {
+                        Console.Write(holiday.date + "--" + holiday.localName + "\n");
+                    }
                     // TODO: HERE GOES THE CODE THAT WILL DECODE THE JSON
                 }
 
@@ -117,10 +124,10 @@ namespace Work_Month_Generator
 
             // Wait for the user to respond before closing.
             Console.Write("Press any key to close the Work Month Generator app...");
-            Console.ReadKey();
+            Console.ReadLine(); //TODO: Rimettere ReadKey
         }
 
-        public static async Task<object> retrieveHolidaysAPI(string url)
+        public static async Task<List<HolidayJson>> retrieveHolidaysAPI(string url)
         {
             try
             {
@@ -130,7 +137,7 @@ namespace Work_Month_Generator
                     if (response != null)
                     {
                         var jsonString = await response.Content.ReadAsStringAsync();
-                        return JsonConvert.DeserializeObject<object>(jsonString);
+                        return JsonConvert.DeserializeObject<List<HolidayJson>>(jsonString);
                     }
                 }
             }
