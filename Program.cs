@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
+using NanoXLSX;
 using Newtonsoft.Json; // Nuget Package
 
 namespace Work_Month_Generator
@@ -20,7 +21,7 @@ namespace Work_Month_Generator
             String localeValue = "";
             String apiUrl = "https://date.nager.at/api/v3/publicholidays";
             List<HolidayJson> holidayList;
-            String[] holidayDays;
+            String[] holidayDays = null;
 
             // Retrieve all data from user
             isCustomYear = displayTitleAndMenu(errorFlag);
@@ -37,8 +38,8 @@ namespace Work_Month_Generator
                 holidayDays = extractHolidays(holidayList);
             }
 
-            // Generate Excel
-            generateExcel();
+            // Generate Excel and save it on the computer
+            generateExcel(yearValue, selectedMonth, holidayFlag, holidayDays);
 
             // Close program
             closeProgram(); 
@@ -218,7 +219,7 @@ namespace Work_Month_Generator
             {
                 foreach (var holiday in holidayList)
                 {
-                    Console.Write(holiday.date + "--" + holiday.localName + "\n");
+                    //Console.Write(holiday.date + "--" + holiday.localName + "\n");
                     dates.Add(holiday.date);
                 }
                 return dates.ToArray();
@@ -230,9 +231,16 @@ namespace Work_Month_Generator
             }
         }
 
-        public static void generateExcel()
+        public static void generateExcel(String yearValue, int selectedMonth, bool holidayFlag, String[]holidayDays)
         {
-            // TODO
+            //Console.WriteLine($"FULL: {yearValue}/{selectedMonth} -- Holiday: {holidayFlag}");
+
+            Workbook workbook = new Workbook("myWorkbook.xlsx", "Sheet1");         // Create new workbook with a worksheet called Sheet1
+            workbook.CurrentWorksheet.AddNextCell("Some Data");                    // Add cell A1
+            workbook.CurrentWorksheet.AddNextCell(42);                             // Add cell B1
+            workbook.CurrentWorksheet.GoToNextRow();                               // Go to row 2
+            workbook.CurrentWorksheet.AddNextCell(DateTime.Now);                   // Add cell A2
+            workbook.Save();                                                       // Save the workbook as myWorkbook.xlsx
         }
     }
 }
