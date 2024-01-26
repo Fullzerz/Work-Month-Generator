@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Text;
 using System.Threading.Tasks;
 using NanoXLSX;
 using Newtonsoft.Json; // Nuget Package
@@ -22,6 +24,14 @@ namespace Work_Month_Generator
             String apiUrl = "https://date.nager.at/api/v3/publicholidays";
             List<HolidayJson> holidayList;
             String[] holidayDays = null;
+            String rifSog = "";
+            String job = "";
+            String[] employees = null;
+
+            // Retrieve configuration files txt
+            job = readJob();
+            rifSog = readRif();
+            employees = readEmployees();
 
             // Retrieve all data from user
             isCustomYear = displayTitleAndMenu(errorFlag);
@@ -34,7 +44,6 @@ namespace Work_Month_Generator
             if (holidayFlag)
             {
                 holidayList = await retrieveHolidaysAPI($"{apiUrl}/{yearValue}/{localeValue}");
-                holidayDays = new string[holidayList.Count];
                 holidayDays = extractHolidays(holidayList);
             }
 
@@ -62,6 +71,7 @@ namespace Work_Month_Generator
             catch (Exception)
             {
                 Console.WriteLine("--> REQUEST ERROR: An error has occurred when calling the API to retrieve the holidays.");
+                closeProgram();
             }
             return null;
         }
@@ -206,8 +216,9 @@ namespace Work_Month_Generator
         public static void closeProgram()
         {
             // Wait for the user to respond before closing.
-            Console.Write("\nPress any key to close the Work Month Generator app...");
+            Console.Write("\n--> Press any key to close the Work Month Generator app...");
             Console.ReadKey();
+            Environment.Exit(0);
         }
 
         public static String[] extractHolidays(List<HolidayJson>holidayList)
@@ -227,6 +238,7 @@ namespace Work_Month_Generator
             else
             {
                 Console.WriteLine("--> LIST EMPTY ERROR: List of holidays is empty. Check locale ID.");
+                closeProgram();
                 return null;
             }
         }
@@ -241,6 +253,137 @@ namespace Work_Month_Generator
             workbook.CurrentWorksheet.GoToNextRow();                               // Go to row 2
             workbook.CurrentWorksheet.AddNextCell(DateTime.Now);                   // Add cell A2
             workbook.Save();                                                       // Save the workbook as myWorkbook.xlsx
+        }
+
+        public static String readRif()
+        {
+            var rif = Path.Combine(Directory.GetCurrentDirectory(), "rif.txt");
+
+            try
+            {
+                // Check if file exists.
+                if (!File.Exists(rif))
+                {
+                    Console.WriteLine("--> rif.txt file does not exist. It will be automatically generated. Please fill it with correct data.");
+                    FileStream fs = File.Create(rif);
+                    closeProgram();
+                }
+                else
+                {
+                    // Check if file empty.
+                    if (new FileInfo(rif).Length == 0)
+                    {
+                        Console.WriteLine("--> rif.txt file is empty. Please fill it with correct data.");
+                        closeProgram();
+                    }
+                    else
+                    {
+                        // Open the stream and read it back.
+                        using (StreamReader sr = File.OpenText(rif))
+                        {
+                            string s = "";
+                            while ((s = sr.ReadLine()) != null)
+                            {
+                                return s;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                Console.WriteLine("--> An error has occurred when generating rif file. Please exit from the application.");
+                closeProgram();
+            }
+            return "";
+        }
+
+        public static String[] readEmployees()
+        {
+            var employeesListFile = Path.Combine(Directory.GetCurrentDirectory(), "employeesList.txt");
+            List<String> employeesList = new List<String>();
+
+            try
+            {
+                // Check if file exists.
+                if (!File.Exists(employeesListFile))
+                {
+                    Console.WriteLine("--> employeesList.txt file does not exist. It will be automatically generated. Please fill it with correct data.");
+                    FileStream fs = File.Create(employeesListFile);
+                    closeProgram();
+                }
+                else
+                {
+                    // Check if file empty.
+                    if (new FileInfo(employeesListFile).Length == 0)
+                    {
+                        Console.WriteLine("--> employeesList.txt file is empty. Please fill it with correct data.");
+                        closeProgram();
+                    }
+                    else
+                    {
+                        // Open the stream and read it back.
+                        using (StreamReader sr = File.OpenText(employeesListFile))
+                        {
+                            string s = "";
+                            while ((s = sr.ReadLine()) != null)
+                            {
+                                employeesList.Add(s);
+                            }
+                            return employeesList.ToArray();
+                        }
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                Console.WriteLine("--> An error has occurred when generating employeesList file. Please exit from the application.");
+                closeProgram();
+            }
+            return null;
+        }
+
+        public static String readJob()
+        {
+            var job = Path.Combine(Directory.GetCurrentDirectory(), "job.txt");
+
+            try
+            {
+                // Check if file exists.
+                if (!File.Exists(job))
+                {
+                    Console.WriteLine("--> job.txt file does not exist. It will be automatically generated. Please fill it with correct data.");
+                    FileStream fs = File.Create(job);
+                    closeProgram();
+                }
+                else
+                {
+                    // Check if file empty.
+                    if (new FileInfo(job).Length == 0)
+                    {
+                        Console.WriteLine("--> job.txt file is empty. Please fill it with correct data.");
+                        closeProgram();
+                    }
+                    else
+                    {
+                        // Open the stream and read it back.
+                        using (StreamReader sr = File.OpenText(job))
+                        {
+                            string s = "";
+                            while ((s = sr.ReadLine()) != null)
+                            {
+                                return s;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                Console.WriteLine("--> An error has occurred when generating rif file. Please exit from the application.");
+                closeProgram();
+            }
+            return "";
         }
     }
 }
