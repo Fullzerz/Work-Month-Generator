@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using NanoXLSX;
+using NanoXLSX.Styles;
 using Newtonsoft.Json; // Nuget Package
 
 namespace Work_Month_Generator
@@ -323,6 +324,13 @@ namespace Work_Month_Generator
             presenzeSheet.MergeCells(range3);
             // END MERGE FIRST ROW
 
+            // ---- STYLES ----
+            Style style = new Style();
+            style.CurrentCellXf.TextRotation = 90;
+            style.CurrentCellXf.Locked = false;
+            //style.CurrentCellXf.Alignment = (CellXf.TextBreakValue)CellXf.HorizontalAlignValue.left;
+            // ---- END OF STYLES ---
+            //workbook.SetWorkbookProtection(true, false, false, null);
 
             // PRINT DAYS
             presenzeSheet.GoToNextRow();
@@ -332,8 +340,10 @@ namespace Work_Month_Generator
             for(int i = 0; i < daysInMonth; i++)
             {
                 presenzeSheet.AddNextCell($"{(i+1).ToString("00")}/{selectedMonth.ToString("00")}");
-                //Cell cell = presenzeSheet.GetCell((Address)presenzeSheet.GetLastCellAddress());
-                //cell.SetStyle();
+                
+                Address address = new Address(presenzeSheet.GetCurrentColumnNumber()-2, presenzeSheet.GetCurrentRowNumber());
+                Cell cell = presenzeSheet.GetCell(address);
+                cell.SetStyle(style);
             }
             presenzeSheet.AddNextCell("totale gg/u");
             presenzeSheet.AddNextCell("inserire i valori in GG");
