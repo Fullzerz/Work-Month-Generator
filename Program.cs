@@ -24,14 +24,16 @@ namespace Work_Month_Generator
             String apiUrl = "https://date.nager.at/api/v3/publicholidays";
             List<HolidayJson> holidayList;
             String[] holidayDays = null;
-            String rifSog = "";
+            String rif = "";
             String job = "";
             String[] employees = null;
+            String[] sheetTitles = null;
 
             // Retrieve configuration files txt
             job = readJob();
-            rifSog = readRif();
+            rif = readRif();
             employees = readEmployees();
+            sheetTitles = readSheetTitles();
 
             // Retrieve all data from user
             isCustomYear = displayTitleAndMenu(errorFlag);
@@ -48,7 +50,7 @@ namespace Work_Month_Generator
             }
 
             // Generate Excel and save it on the computer
-            generateExcel(yearValue, selectedMonth, holidayFlag, holidayDays);
+            generateExcel(yearValue, selectedMonth, holidayFlag, holidayDays, job, rif, employees, sheetTitles);
 
             // Close program
             closeProgram(); 
@@ -243,16 +245,116 @@ namespace Work_Month_Generator
             }
         }
 
-        public static void generateExcel(String yearValue, int selectedMonth, bool holidayFlag, String[]holidayDays)
+        public static void generateExcel(String yearValue, int selectedMonth, bool holidayFlag, String[]holidayDays, String job, String rif, String[] employees, String[] sheetTitles)
         {
-            //Console.WriteLine($"FULL: {yearValue}/{selectedMonth} -- Holiday: {holidayFlag}");
 
-            Workbook workbook = new Workbook("myWorkbook.xlsx", "Sheet1");         // Create new workbook with a worksheet called Sheet1
-            workbook.CurrentWorksheet.AddNextCell("Some Data");                    // Add cell A1
-            workbook.CurrentWorksheet.AddNextCell(42);                             // Add cell B1
-            workbook.CurrentWorksheet.GoToNextRow();                               // Go to row 2
-            workbook.CurrentWorksheet.AddNextCell(DateTime.Now);                   // Add cell A2
-            workbook.Save();                                                       // Save the workbook as myWorkbook.xlsx
+            Workbook workbook = new Workbook($"{yearValue}_{selectedMonth.ToString("00")}.xlsx", sheetTitles[0]);
+            Worksheet presenzeSheet = new Worksheet(sheetTitles[1]);
+            int daysInMonth = DateTime.DaysInMonth(Int32.Parse(yearValue), selectedMonth);
+
+            // RIF COLUMN
+            presenzeSheet.AddNextCell($"Rif.{job}");
+            Address address1 = new Address(0, 0);
+            Address address2 = new Address(0, 1);
+
+            Range range1 = new Range(address1, address2);
+            presenzeSheet.MergeCells(range1);
+            // END RIF COLUMN
+
+            // RISORSA COLUMN
+            presenzeSheet.AddNextCell("Risorsa");
+            Address address3 = new Address(1, 0);
+            Address address4 = new Address(1, 1);
+
+            Range range2 = new Range(address3, address4);
+            presenzeSheet.MergeCells(range2);
+            // END RISORSA COLUMN 
+
+            // MONTH COLUMN
+            switch (selectedMonth){
+                case 1:
+                    presenzeSheet.AddNextCell($"Jan-{yearValue}");
+                    break;
+                case 2:
+                    presenzeSheet.AddNextCell($"Feb-{yearValue}");
+                    break;
+                case 3:
+                    presenzeSheet.AddNextCell($"Mar-{yearValue}");
+                    break;
+                case 4:
+                    presenzeSheet.AddNextCell($"Apr-{yearValue}");
+                    break;
+                case 5:
+                    presenzeSheet.AddNextCell($"May-{yearValue}");
+                    break;
+                case 6:
+                    presenzeSheet.AddNextCell($"Jun-{yearValue}");
+                    break;
+                case 7:
+                    presenzeSheet.AddNextCell($"Jul-{yearValue}");
+                    break;
+                case 8:
+                    presenzeSheet.AddNextCell($"Aug-{yearValue}");
+                    break;
+                case 9:
+                    presenzeSheet.AddNextCell($"Sep-{yearValue}");
+                    break;
+                case 10:
+                    presenzeSheet.AddNextCell($"Oct-{yearValue}");
+                    break;
+                case 11:
+                    presenzeSheet.AddNextCell($"Nov-{yearValue}");
+                    break;
+                case 12:
+                    presenzeSheet.AddNextCell($"Dec-{yearValue}");
+                    break;
+            }
+            // END MONTH COLUMN
+
+            // TOTALE COLUMN
+            presenzeSheet.AddCell("totale gg/u", daysInMonth+3, 0);
+            // END TOTALE COLUMN
+
+            // MERGE FIRST ROW
+            Address address5 = new Address(2, 0);
+            Address address6 = new Address(daysInMonth+2, 0);
+
+            Range range3 = new Range(address5, address6);
+            presenzeSheet.MergeCells(range3);
+            // END MERGE FIRST ROW
+
+
+            // PRINT DAYS
+            presenzeSheet.GoToNextRow();
+            presenzeSheet.AddNextCell("");
+            presenzeSheet.AddNextCell("");
+            
+            for(int i = 0; i < daysInMonth; i++)
+            {
+                presenzeSheet.AddNextCell($"{(i+1).ToString("00")}/{selectedMonth.ToString("00")}");
+                //Cell cell = presenzeSheet.GetCell((Address)presenzeSheet.GetLastCellAddress());
+                //cell.SetStyle();
+            }
+            presenzeSheet.AddNextCell("totale gg/u");
+            presenzeSheet.AddNextCell("inserire i valori in GG");
+            // END PRINT DAYS
+
+            // PRINT EMPLOYEES
+            presenzeSheet.GoToNextRow();
+            foreach(String employee in employees)
+            {
+                presenzeSheet.AddNextCell(rif);
+                presenzeSheet.AddNextCell(employee);
+                presenzeSheet.GoToNextRow();
+            }
+            presenzeSheet.AddNextCell("totale Giorni");
+            // END PRINT EMPLOYEES
+
+            // Add the second sheet to the workbook and save
+            workbook.AddWorksheet(presenzeSheet);
+            workbook.Save();
+
+            Console.WriteLine($"\n--> Excel file generated.");
         }
 
         public static String readRif()
@@ -338,6 +440,51 @@ namespace Work_Month_Generator
             catch (Exception)
             {
                 Console.WriteLine("--> An error has occurred when generating employeesList file. Please exit from the application.");
+                closeProgram();
+            }
+            return null;
+        }
+
+        public static String[] readSheetTitles()
+        {
+            var sheetTitlesFile = Path.Combine(Directory.GetCurrentDirectory(), "sheetTitles.txt");
+            List<String> sheetTitles = new List<String>();
+
+            try
+            {
+                // Check if file exists.
+                if (!File.Exists(sheetTitlesFile))
+                {
+                    Console.WriteLine("--> sheetTitles.txt file does not exist. It will be automatically generated. Please fill it with correct data.");
+                    FileStream fs = File.Create(sheetTitlesFile);
+                    closeProgram();
+                }
+                else
+                {
+                    // Check if file empty.
+                    if (new FileInfo(sheetTitlesFile).Length == 0)
+                    {
+                        Console.WriteLine("--> sheetTitles.txt file is empty. Please fill it with correct data.");
+                        closeProgram();
+                    }
+                    else
+                    {
+                        // Open the stream and read it back.
+                        using (StreamReader sr = File.OpenText(sheetTitlesFile))
+                        {
+                            string s = "";
+                            while ((s = sr.ReadLine()) != null)
+                            {
+                                sheetTitles.Add(s);
+                            }
+                            return sheetTitles.ToArray();
+                        }
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                Console.WriteLine("--> An error has occurred when generating sheetTitles file. Please exit from the application.");
                 closeProgram();
             }
             return null;
