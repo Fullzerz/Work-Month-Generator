@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
-using System.Text;
 using System.Threading.Tasks;
-using NanoXLSX;
-using NanoXLSX.Styles;
-using Newtonsoft.Json; // Nuget Package
+using Newtonsoft.Json;
+using Excel = Microsoft.Office.Interop.Excel;
+using System.Reflection;
+using System.Globalization;
 
 namespace Work_Month_Generator
 {
@@ -16,7 +16,7 @@ namespace Work_Month_Generator
         static async Task Main(string[] args)
         {
             // Declare variables and then initialize them.
-            bool isCustomYear = false; 
+            bool isCustomYear = false;
             bool errorFlag = false;
             bool holidayFlag = false;
             int selectedMonth = 0;
@@ -54,7 +54,7 @@ namespace Work_Month_Generator
             generateExcel(yearValue, selectedMonth, holidayFlag, holidayDays, job, rif, employees, sheetTitles);
 
             // Close program
-            closeProgram(); 
+            closeProgram();
         }
 
         public static async Task<List<HolidayJson>> retrieveHolidaysAPI(string url)
@@ -209,11 +209,12 @@ namespace Work_Month_Generator
             if (holidayFlag)
             {
                 Console.Write("\n--> Please enter your locale ID (Italy=IT, United States=US etc.): ");
-                return Console.ReadLine();  
-            } else
+                return Console.ReadLine();
+            }
+            else
             {
                 return "";
-            }         
+            }
         }
 
         public static void closeProgram()
@@ -224,7 +225,7 @@ namespace Work_Month_Generator
             Environment.Exit(0);
         }
 
-        public static String[] extractHolidays(List<HolidayJson>holidayList)
+        public static String[] extractHolidays(List<HolidayJson> holidayList)
         {
             bool isNullOrEmpty = holidayList?.Any() != true;
             List<string> dates = new List<string>();
@@ -246,125 +247,204 @@ namespace Work_Month_Generator
             }
         }
 
-        public static void generateExcel(String yearValue, int selectedMonth, bool holidayFlag, String[]holidayDays, String job, String rif, String[] employees, String[] sheetTitles)
+        public static void generateExcel(String yearValue, int selectedMonth, bool holidayFlag, String[] holidayDays, String job, String rif, String[] employees, String[] sheetTitles)
         {
+            Excel.Application oXL;
+            Excel._Workbook oWB;
+            Excel._Worksheet oSheet;
+            Excel.Range oRng;
 
-            Workbook workbook = new Workbook($"{yearValue}_{selectedMonth.ToString("00")}.xlsx", sheetTitles[0]);
-            Worksheet presenzeSheet = new Worksheet(sheetTitles[1]);
-            int daysInMonth = DateTime.DaysInMonth(Int32.Parse(yearValue), selectedMonth);
-
-            // RIF COLUMN
-            presenzeSheet.AddNextCell($"Rif.{job}");
-            Address address1 = new Address(0, 0);
-            Address address2 = new Address(0, 1);
-
-            Range range1 = new Range(address1, address2);
-            presenzeSheet.MergeCells(range1);
-            // END RIF COLUMN
-
-            // RISORSA COLUMN
-            presenzeSheet.AddNextCell("Risorsa");
-            Address address3 = new Address(1, 0);
-            Address address4 = new Address(1, 1);
-
-            Range range2 = new Range(address3, address4);
-            presenzeSheet.MergeCells(range2);
-            // END RISORSA COLUMN 
-
-            // MONTH COLUMN
-            switch (selectedMonth){
-                case 1:
-                    presenzeSheet.AddNextCell($"Jan-{yearValue}");
-                    break;
-                case 2:
-                    presenzeSheet.AddNextCell($"Feb-{yearValue}");
-                    break;
-                case 3:
-                    presenzeSheet.AddNextCell($"Mar-{yearValue}");
-                    break;
-                case 4:
-                    presenzeSheet.AddNextCell($"Apr-{yearValue}");
-                    break;
-                case 5:
-                    presenzeSheet.AddNextCell($"May-{yearValue}");
-                    break;
-                case 6:
-                    presenzeSheet.AddNextCell($"Jun-{yearValue}");
-                    break;
-                case 7:
-                    presenzeSheet.AddNextCell($"Jul-{yearValue}");
-                    break;
-                case 8:
-                    presenzeSheet.AddNextCell($"Aug-{yearValue}");
-                    break;
-                case 9:
-                    presenzeSheet.AddNextCell($"Sep-{yearValue}");
-                    break;
-                case 10:
-                    presenzeSheet.AddNextCell($"Oct-{yearValue}");
-                    break;
-                case 11:
-                    presenzeSheet.AddNextCell($"Nov-{yearValue}");
-                    break;
-                case 12:
-                    presenzeSheet.AddNextCell($"Dec-{yearValue}");
-                    break;
-            }
-            // END MONTH COLUMN
-
-            // TOTALE COLUMN
-            presenzeSheet.AddCell("totale gg/u", daysInMonth+3, 0);
-            // END TOTALE COLUMN
-
-            // MERGE FIRST ROW
-            Address address5 = new Address(2, 0);
-            Address address6 = new Address(daysInMonth+2, 0);
-
-            Range range3 = new Range(address5, address6);
-            presenzeSheet.MergeCells(range3);
-            // END MERGE FIRST ROW
-
-            // ---- STYLES ----
-            Style style = new Style();
-            style.CurrentCellXf.TextRotation = 90;
-            style.CurrentCellXf.Locked = false;
-            //style.CurrentCellXf.Alignment = (CellXf.TextBreakValue)CellXf.HorizontalAlignValue.left;
-            // ---- END OF STYLES ---
-            //workbook.SetWorkbookProtection(true, false, false, null);
-
-            // PRINT DAYS
-            presenzeSheet.GoToNextRow();
-            presenzeSheet.AddNextCell("");
-            presenzeSheet.AddNextCell("");
-            
-            for(int i = 0; i < daysInMonth; i++)
+            try
             {
-                presenzeSheet.AddNextCell($"{(i+1).ToString("00")}/{selectedMonth.ToString("00")}");
-                
-                Address address = new Address(presenzeSheet.GetCurrentColumnNumber()-2, presenzeSheet.GetCurrentRowNumber());
-                Cell cell = presenzeSheet.GetCell(address);
-                cell.SetStyle(style);
-            }
-            presenzeSheet.AddNextCell("totale gg/u");
-            presenzeSheet.AddNextCell("inserire i valori in GG");
-            // END PRINT DAYS
+                //Start Excel and get Application object.
+                oXL = new Excel.Application();
+                oXL.Visible = false;
 
-            // PRINT EMPLOYEES
-            presenzeSheet.GoToNextRow();
-            foreach(String employee in employees)
+                //Initialize variables
+                int daysInMonth = DateTime.DaysInMonth(Int32.Parse(yearValue), selectedMonth);
+                int count = 0;
+
+                //Get a new workbook and create sheets
+                oWB = oXL.Workbooks.Add(Missing.Value);
+                oSheet = oWB.ActiveSheet;
+                oSheet.Name = $"{sheetTitles[1]}";
+
+                //Add table headers going cell by cell.
+                oSheet.Cells[1, 1] = $"Rif. {job}";
+                oSheet.Cells[1, 2] = "Risorsa";
+
+                //Write selected month into worksheet
+                oSheet.Cells[1, 3] = $"{GetMonthName(selectedMonth)}-{yearValue}";
+                oSheet.Range[oSheet.Cells[1, 3], oSheet.Cells[1, 3]].NumberFormat = "mmm-yyyy";
+
+                //Styles for the first row
+                oSheet.Range[oSheet.Cells[1, 1], oSheet.Cells[1, 3]].Font.Bold = true;
+                oSheet.Range[oSheet.Cells[1, 1], oSheet.Cells[1, 3]].Font.Size = 9;
+                oSheet.Range[oSheet.Cells[1, 1], oSheet.Cells[1, 3]].Font.Color = System.Drawing.ColorTranslator.ToOle(System.Drawing.Color.FromArgb(-4194304));
+                oSheet.Range[oSheet.Cells[1, 1], oSheet.Cells[1, 3]].Interior.Color = System.Drawing.ColorTranslator.ToOle(System.Drawing.Color.FromArgb(-855310));
+                oSheet.Range[oSheet.Cells[1, 1], oSheet.Cells[1, 3]].HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter;
+                oSheet.Range[oSheet.Cells[1, 1], oSheet.Cells[1, 3]].VerticalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter;
+
+                // Merge cells and write last cell
+                oSheet.get_Range("A1", "A2").MergeCells = true;
+                oSheet.get_Range("B1", "B2").MergeCells = true;
+                oSheet.Range[oSheet.Cells[1, 3], oSheet.Cells[1, daysInMonth + 3]].MergeCells = true;
+                oSheet.Cells[1, daysInMonth + 4] = "Totale gg/u";
+                oSheet.Range[oSheet.Cells[1, daysInMonth + 4], oSheet.Cells[1, daysInMonth + 4]].Font.Bold = true;
+                oSheet.Range[oSheet.Cells[1, daysInMonth + 4], oSheet.Cells[1, daysInMonth + 4]].Font.Size = 9;
+                oSheet.Range[oSheet.Cells[1, daysInMonth + 4], oSheet.Cells[1, daysInMonth + 4]].Font.Color = System.Drawing.ColorTranslator.ToOle(System.Drawing.Color.FromArgb(-4194304));
+                oSheet.Range[oSheet.Cells[1, daysInMonth + 4], oSheet.Cells[1, daysInMonth + 4]].Interior.Color = System.Drawing.ColorTranslator.ToOle(System.Drawing.Color.FromArgb(-855310));
+                oSheet.Range[oSheet.Cells[1, daysInMonth + 4], oSheet.Cells[1, daysInMonth + 4]].HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter;
+                oSheet.Range[oSheet.Cells[1, daysInMonth + 4], oSheet.Cells[1, daysInMonth + 4]].VerticalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter;
+
+                // Print days
+                for (int i = 0; i < daysInMonth; i++)
+                {
+                    oSheet.Cells[2, i + 3] = $"{(i + 1).ToString("00")}-{GetMonthName(selectedMonth)}-{yearValue}";
+                    oSheet.Range[oSheet.Cells[2, i + 3], oSheet.Cells[2, i + 3]].NumberFormat = "dd/mm";
+                    oSheet.Range[oSheet.Cells[2, i + 3], oSheet.Cells[2, i + 3]].Cells.Orientation = Excel.XlOrientation.xlUpward;
+                    oSheet.Range[oSheet.Cells[2, i + 3], oSheet.Cells[2, i + 3]].Font.Size = 9;
+                    oSheet.Range[oSheet.Cells[2, i + 3], oSheet.Cells[2, i + 3]].Font.Color = System.Drawing.ColorTranslator.ToOle(System.Drawing.Color.FromArgb(-4194304));
+                    oSheet.Range[oSheet.Cells[2, i + 3], oSheet.Cells[2, i + 3]].Interior.Color = System.Drawing.ColorTranslator.ToOle(System.Drawing.Color.FromArgb(-855310));
+                    oSheet.Range[oSheet.Cells[2, i + 3], oSheet.Cells[2, i + 3]].ColumnWidth = 5.71;
+                }
+                oSheet.Cells[2, daysInMonth + 3] = "totale gg/u";
+                oSheet.Range[oSheet.Cells[2, daysInMonth + 3], oSheet.Cells[2, daysInMonth + 3]].Font.Bold = true;
+                oSheet.Range[oSheet.Cells[2, daysInMonth + 3], oSheet.Cells[2, daysInMonth + 3]].Font.Size = 9;
+                oSheet.Range[oSheet.Cells[2, daysInMonth + 3], oSheet.Cells[2, daysInMonth + 3]].Font.Color = System.Drawing.ColorTranslator.ToOle(System.Drawing.Color.FromArgb(-4194304));
+                oSheet.Range[oSheet.Cells[2, daysInMonth + 3], oSheet.Cells[2, daysInMonth + 3]].Interior.Color = System.Drawing.ColorTranslator.ToOle(System.Drawing.Color.FromArgb(-855310));
+                oSheet.Range[oSheet.Cells[2, daysInMonth + 3], oSheet.Cells[2, daysInMonth + 3]].HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter;
+                oSheet.Range[oSheet.Cells[2, daysInMonth + 3], oSheet.Cells[2, daysInMonth + 3]].VerticalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter;
+                oSheet.Range[oSheet.Cells[2, daysInMonth + 3], oSheet.Cells[2, daysInMonth + 3]].WrapText = true;
+                oSheet.Range[oSheet.Cells[2, daysInMonth + 3], oSheet.Cells[2, daysInMonth + 3]].ColumnWidth = 5.71;
+
+                oSheet.Cells[2, daysInMonth + 4] = "inserire i valori";
+                oSheet.Range[oSheet.Cells[2, daysInMonth + 4], oSheet.Cells[2, daysInMonth + 4]].Font.Bold = true;
+                oSheet.Range[oSheet.Cells[2, daysInMonth + 4], oSheet.Cells[2, daysInMonth + 4]].Font.Size = 11;
+                oSheet.Range[oSheet.Cells[2, daysInMonth + 4], oSheet.Cells[2, daysInMonth + 4]].Font.Color = System.Drawing.ColorTranslator.ToOle(System.Drawing.Color.FromArgb(-16777216));
+                oSheet.Range[oSheet.Cells[2, daysInMonth + 4], oSheet.Cells[2, daysInMonth + 4]].Interior.Color = System.Drawing.ColorTranslator.ToOle(System.Drawing.Color.FromArgb(-256));
+                oSheet.Range[oSheet.Cells[2, daysInMonth + 4], oSheet.Cells[2, daysInMonth + 4]].HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter;
+                oSheet.Range[oSheet.Cells[2, daysInMonth + 4], oSheet.Cells[2, daysInMonth + 4]].VerticalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter;
+                oSheet.Range[oSheet.Cells[2, daysInMonth + 4], oSheet.Cells[2, daysInMonth + 4]].WrapText = true;
+                oSheet.Range[oSheet.Cells[2, daysInMonth + 4], oSheet.Cells[2, daysInMonth + 4]].Borders.LineStyle = Excel.XlLineStyle.xlDouble;
+
+                // Print employees and red column for total hours
+                count = 1;
+                foreach (String employee in employees)
+                {
+                    oSheet.Cells[count + 2, 1] = rif;
+                    oSheet.Cells[count + 2, 2] = employee;
+                    oSheet.Range[oSheet.Cells[count + 2, 1], oSheet.Cells[count + 2, 2]].Font.Size = 9;
+
+                    oSheet.Cells[count + 2, daysInMonth + 3].Formula = "=Sum(" + oSheet.Cells[count + 2, 3].Address + ":" + oSheet.Cells[count + 2, daysInMonth + 2].Address + ")";
+                    oSheet.Range[oSheet.Cells[count + 2, daysInMonth + 3], oSheet.Cells[count + 2, daysInMonth + 3]].Font.Size = 9;
+                    oSheet.Range[oSheet.Cells[count + 2, daysInMonth + 3], oSheet.Cells[count + 2, daysInMonth + 3]].Font.Color = System.Drawing.ColorTranslator.ToOle(System.Drawing.Color.FromArgb(-1));
+                    oSheet.Range[oSheet.Cells[count + 2, daysInMonth + 3], oSheet.Cells[count + 2, daysInMonth + 3]].Interior.Color = System.Drawing.ColorTranslator.ToOle(System.Drawing.Color.FromArgb(-4194304));
+                    oSheet.Range[oSheet.Cells[count + 2, daysInMonth + 3], oSheet.Cells[count + 2, daysInMonth + 3]].HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter;
+                    oSheet.Range[oSheet.Cells[count + 2, daysInMonth + 3], oSheet.Cells[count + 2, daysInMonth + 3]].VerticalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter;
+
+                    count++;
+                }
+                oSheet.Cells[count + 2, daysInMonth + 3].Formula = "=Sum(" + oSheet.Cells[count + 2, 3].Address + ":" + oSheet.Cells[count + 2, daysInMonth + 2].Address + ")";
+                oSheet.Range[oSheet.Cells[count + 2, daysInMonth + 3], oSheet.Cells[count + 2, daysInMonth + 3]].Font.Size = 9;
+                oSheet.Range[oSheet.Cells[count + 2, daysInMonth + 3], oSheet.Cells[count + 2, daysInMonth + 3]].Font.Color = System.Drawing.ColorTranslator.ToOle(System.Drawing.Color.FromArgb(-1));
+                oSheet.Range[oSheet.Cells[count + 2, daysInMonth + 3], oSheet.Cells[count + 2, daysInMonth + 3]].Interior.Color = System.Drawing.ColorTranslator.ToOle(System.Drawing.Color.FromArgb(-4194304));
+                oSheet.Range[oSheet.Cells[count + 2, daysInMonth + 3], oSheet.Cells[count + 2, daysInMonth + 3]].HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter;
+                oSheet.Range[oSheet.Cells[count + 2, daysInMonth + 3], oSheet.Cells[count + 2, daysInMonth + 3]].VerticalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter;
+
+                oSheet.Cells[count + 2, 1] = "totale Giorni";
+                oSheet.Range[oSheet.Cells[count + 2, 1], oSheet.Cells[count + 2, 2]].MergeCells = true;
+                oSheet.Range[oSheet.Cells[count + 2, 1], oSheet.Cells[count + 2, 2]].Font.Bold = true;
+                oSheet.Range[oSheet.Cells[count + 2, 1], oSheet.Cells[count + 2, 2]].Font.Size = 9;
+                oSheet.Range[oSheet.Cells[count + 2, 1], oSheet.Cells[count + 2, 2]].Font.Color = System.Drawing.ColorTranslator.ToOle(System.Drawing.Color.FromArgb(-4194304));
+                oSheet.Range[oSheet.Cells[count + 2, 1], oSheet.Cells[count + 2, 2]].Interior.Color = System.Drawing.ColorTranslator.ToOle(System.Drawing.Color.FromArgb(-855310));
+                oSheet.Range[oSheet.Cells[count + 2, 1], oSheet.Cells[count + 2, 2]].HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter;
+                oSheet.Range[oSheet.Cells[count + 2, 1], oSheet.Cells[count + 2, 2]].VerticalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter;
+
+                // Auto fit first 2 columns
+                oRng = oSheet.get_Range("A1", "B1");
+                oRng.EntireColumn.AutoFit();
+
+                // Create borders for all written cells, unlock all written cells
+                Excel.Range last = oSheet.Cells.SpecialCells(Excel.XlCellType.xlCellTypeLastCell, Type.Missing);
+                oSheet.Range["A1", last].Cells.Borders.LineStyle = Excel.XlLineStyle.xlContinuous;
+                oSheet.Range["A1", last].Cells.Locked = false;
+
+                // Remove borders from unnecessary cells
+                count = 1;
+                foreach (String employee in employees)
+                {
+                    oSheet.Range[oSheet.Cells[count + 2, daysInMonth + 4], oSheet.Cells[count + 2, daysInMonth + 4]].Borders.LineStyle = Excel.XlLineStyle.xlLineStyleNone;
+                    count++;
+                }
+                oSheet.Range[oSheet.Cells[count + 2, daysInMonth + 4], oSheet.Cells[count + 2, daysInMonth + 4]].Borders.LineStyle = Excel.XlLineStyle.xlLineStyleNone;
+
+                // Holidays and weekends + lock cells
+                for (int i = 0; i < daysInMonth; i++)
+                {
+                    String date = oSheet.Cells[2, i + 3].Value.ToString();
+                    //Console.WriteLine($"--> TEST: {date}");
+                    var cultureInfo = new CultureInfo("it-IT");
+                    DateTime dateTime = DateTime.Parse(date, cultureInfo);
+                    if ((dateTime.DayOfWeek == DayOfWeek.Saturday) || (dateTime.DayOfWeek == DayOfWeek.Sunday))
+                    {
+                        count = 1;
+                        //Console.WriteLine("This is a weekend");
+                        foreach (String employee in employees)
+                        {
+                            oSheet.Range[oSheet.Cells[count + 2, i + 3], oSheet.Cells[count + 2, i + 3]].Interior.Color = System.Drawing.ColorTranslator.ToOle(System.Drawing.Color.FromArgb(-4210753));
+                            oSheet.Range[oSheet.Cells[count + 2, i + 3], oSheet.Cells[count + 2, i + 3]].Cells.Locked = true;
+                            count++;
+                        }
+                        oSheet.Range[oSheet.Cells[count + 2, i + 3], oSheet.Cells[count + 2, i + 3]].Interior.Color = System.Drawing.ColorTranslator.ToOle(System.Drawing.Color.FromArgb(-4210753));
+                        oSheet.Range[oSheet.Cells[count + 2, i + 3], oSheet.Cells[count + 2, i + 3]].Cells.Locked = true;
+                    }
+
+                    if (holidayFlag)
+                    {
+                        foreach (String holiday in holidayDays)
+                        {
+                            DateTime holidayDateTime = DateTime.Parse(holiday, cultureInfo);
+                            if (DateTime.Compare(holidayDateTime, dateTime) == 0)
+                            {
+                                count = 1;
+                                //Console.WriteLine("This is a holiday");
+                                foreach (String employee in employees)
+                                {
+                                    oSheet.Range[oSheet.Cells[count + 2, i + 3], oSheet.Cells[count + 2, i + 3]].Interior.Color = System.Drawing.ColorTranslator.ToOle(System.Drawing.Color.FromArgb(-4210753));
+                                    oSheet.Range[oSheet.Cells[count + 2, i + 3], oSheet.Cells[count + 2, i + 3]].Cells.Locked = true;
+                                    count++;
+                                }
+                                oSheet.Range[oSheet.Cells[count + 2, i + 3], oSheet.Cells[count + 2, i + 3]].Interior.Color = System.Drawing.ColorTranslator.ToOle(System.Drawing.Color.FromArgb(-4210753));
+                                oSheet.Range[oSheet.Cells[count + 2, i + 3], oSheet.Cells[count + 2, i + 3]].Cells.Locked = true;
+                            }
+                        }
+                    }
+                }
+
+                //Protect the sheet
+                oSheet.Protect();
+
+                //Create a copy of the current sheet, using another title
+                oSheet.Copy(oSheet);
+                oSheet = oWB.ActiveSheet;
+                oSheet.Name = $"{sheetTitles[0]}";
+
+                //Make sure Excel is visible and give the user the save prompt
+                oXL.Visible = true;
+                oXL.UserControl = true;
+                oXL.GetSaveAsFilename($"{rif}-{yearValue}_{selectedMonth.ToString("00")}");
+                Console.WriteLine($"\n--> Excel file generated.");
+            }
+            catch (Exception theException)
             {
-                presenzeSheet.AddNextCell(rif);
-                presenzeSheet.AddNextCell(employee);
-                presenzeSheet.GoToNextRow();
+                String errorMessage;
+                errorMessage = "Error: ";
+                errorMessage = String.Concat(errorMessage, theException.Message);
+                errorMessage = String.Concat(errorMessage, " Line: ");
+                errorMessage = String.Concat(errorMessage, theException.Source);
+                Console.WriteLine($"\n--> A fatal error has occurred: {errorMessage}");
             }
-            presenzeSheet.AddNextCell("totale Giorni");
-            // END PRINT EMPLOYEES
-
-            // Add the second sheet to the workbook and save
-            workbook.AddWorksheet(presenzeSheet);
-            workbook.Save();
-
-            Console.WriteLine($"\n--> Excel file generated.");
         }
 
         public static String readRif()
@@ -541,6 +621,11 @@ namespace Work_Month_Generator
                 closeProgram();
             }
             return "";
+        }
+
+        public static String GetMonthName(int month)
+        {
+            return CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(month);
         }
     }
 }
